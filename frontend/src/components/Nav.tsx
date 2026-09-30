@@ -1,7 +1,7 @@
 import { BrandMark } from "./BrandMark";
 import { useAppState } from "@/state/AppState";
 import type { ViewKey } from "@/types";
-import { Menu } from "lucide-react";
+import { LogOut } from "lucide-react";
 
 const links: { key: ViewKey; label: string }[] = [
   { key: "home", label: "Home" },
@@ -11,7 +11,7 @@ const links: { key: ViewKey; label: string }[] = [
 ];
 
 export function Nav() {
-  const { view, go, openScenario } = useAppState();
+  const { view, go, openScenario, user, logout } = useAppState();
 
   return (
     <nav className="flex items-center justify-between py-3.5 px-1 pb-6 flex-wrap gap-3.5">
@@ -46,13 +46,19 @@ export function Nav() {
         </div>
         <div className="flex items-center gap-2">
           <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#3a4552] to-[#1c232c] border border-line-strong flex items-center justify-center font-display text-xs font-semibold text-text-dim">
-            A
+            {user?.name.charAt(0).toUpperCase() ?? "?"}
           </div>
-          <span className="text-[13.5px] font-medium">Alex</span>
+          <span className="text-[13.5px] font-medium max-[640px]:hidden">{user?.name.split(" ")[0]}</span>
         </div>
-        <div className="w-[30px] h-[30px] rounded-lg flex items-center justify-center text-text-dim border border-transparent hover:border-line-strong hover:text-text cursor-pointer">
-          <Menu size={16} />
-        </div>
+        <button
+          type="button"
+          aria-label="Log out"
+          title="Log out"
+          onClick={logout}
+          className="w-[30px] h-[30px] rounded-lg flex items-center justify-center text-text-dim bg-transparent border border-transparent hover:border-line-strong hover:text-text cursor-pointer"
+        >
+          <LogOut size={16} />
+        </button>
       </div>
     </nav>
   );

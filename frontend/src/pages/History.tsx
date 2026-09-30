@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { useAppState } from "@/state/AppState";
-import { TrendingUp, Landmark, Car, ArrowLeftRight, Sparkles } from "lucide-react";
+import { TrendingUp, Landmark, Car, ArrowLeftRight, Sparkles, Trash2 } from "lucide-react";
 
 const icons: Record<string, React.ReactNode> = {
   loan: <TrendingUp size={17} />,
@@ -20,7 +20,7 @@ function fmtSigned(n: number): string {
 }
 
 export function History() {
-  const { simHistory, openResultsFromHistory, go } = useAppState();
+  const { simHistory, openResultsFromHistory, removeHistoryEntry, go } = useAppState();
 
   return (
     <div className="animate-fadeIn">
@@ -60,8 +60,22 @@ export function History() {
                   <p className="text-xs text-text-faint m-0">{h.date}</p>
                 </div>
               </div>
-              <div className={`font-display text-[13px] font-bold flex-shrink-0 pl-4 ${diff >= 0 ? "text-pos" : "text-neg"}`}>
-                {fmtSigned(diff)}
+              <div className="flex items-center gap-3 flex-shrink-0 pl-4">
+                <span className={`font-display text-[13px] font-bold ${diff >= 0 ? "text-pos" : "text-neg"}`}>
+                  {fmtSigned(diff)}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Delete entry"
+                  title="Delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    void removeHistoryEntry(h.id);
+                  }}
+                  className="text-text-faint hover:text-neg bg-transparent border-none cursor-pointer p-1"
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
             </Card>
           );

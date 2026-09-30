@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
+
+from app.routers.deps import get_current_user
 
 from app.schemas.scenario_parse import (
     ScenarioParseRequest,
@@ -17,6 +19,7 @@ from app.services.scenario_service import (
 router = APIRouter(
     prefix="/scenario",
     tags=["Scenario"],
+    dependencies=[Depends(get_current_user)],
 )
 
 

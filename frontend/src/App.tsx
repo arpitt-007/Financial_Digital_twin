@@ -1,6 +1,7 @@
 import { AppProvider, useAppState } from "@/state/AppState";
 import { Nav } from "@/components/Nav";
 import { Footer } from "@/components/Footer";
+import { Login } from "@/pages/Login";
 import { Onboarding } from "@/pages/Onboarding";
 import { Home } from "@/pages/Home";
 import { TwinProfile } from "@/pages/TwinProfile";
@@ -29,9 +30,10 @@ function MainApp() {
 }
 
 function Shell() {
-  const { view, checkingProfile } = useAppState();
-  if (checkingProfile) return <Loading />;
-  if (view === "onboarding") return <Onboarding />;
+  const { view, user, authLoading, hasProfile } = useAppState();
+  if (authLoading) return <Loading />;
+  if (!user) return <Login />;
+  if (!hasProfile || view === "onboarding") return <Onboarding />;
   return <MainApp />;
 }
 

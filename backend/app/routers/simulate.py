@@ -7,7 +7,9 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.twin_profile import TwinProfile
+from app.models.user import User
+from app.routers.deps import get_current_user
+from app.routers.profile import get_user_profile
 from app.schemas.simulation import (
     SimulationRequest,
     SimulationResponse,
@@ -22,9 +24,6 @@ router = APIRouter(
     tags=["Simulation"],
 )
 
-DEMO_PROFILE_ID = 1
-
-
 @router.post(
     "",
     response_model=SimulationResponse,
@@ -35,12 +34,10 @@ DEMO_PROFILE_ID = 1
 )
 def run_simulation(
     request: SimulationRequest,
+    current_user: User = Depends(get_current_user),
     database: Session = Depends(get_db),
 ):
-    profile = database.get(
-        TwinProfile,
-        DEMO_PROFILE_ID,
-    )
+    profile = get_user_profile(database, current_user)
 
     if profile is None:
         raise HTTPException(

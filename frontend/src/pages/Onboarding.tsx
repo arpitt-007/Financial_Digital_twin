@@ -8,18 +8,18 @@ import { useAppState } from "@/state/AppState";
 const TOTAL_STEPS = 5;
 
 export function Onboarding() {
-  const { profile, goalName, setGoalName, completeOnboarding, onboardingError, go } = useAppState();
+  const { profile, hasProfile, goalName, setGoalName, completeOnboarding, onboardingError } = useAppState();
   const [step, setStep] = React.useState(1);
   const [saving, setSaving] = React.useState(false);
   const [form, setForm] = React.useState({
-    income: String(profile.monthly_income || ""),
-    expenses: String(profile.monthly_expenses || ""),
-    savings: String(profile.monthly_investment || ""),
-    debt: String(profile.existing_debt || ""),
-    investments: String(profile.investments || ""),
-    emergencyFund: String(profile.cash_savings || ""),
+    income: hasProfile ? String(profile.monthly_income || "") : "",
+    expenses: hasProfile ? String(profile.monthly_expenses || "") : "",
+    savings: hasProfile ? String(profile.monthly_investment || "") : "",
+    debt: hasProfile ? String(profile.existing_debt || "") : "",
+    investments: hasProfile ? String(profile.investments || "") : "",
+    emergencyFund: hasProfile ? String(profile.cash_savings || "") : "",
     goalName,
-    goalAmount: String(profile.financial_goal || ""),
+    goalAmount: hasProfile ? String(profile.financial_goal || "") : "",
   });
 
   const num = (s: string) => parseInt(s.replace(/[^\d]/g, ""), 10) || 0;
@@ -167,12 +167,6 @@ export function Onboarding() {
           </div>
         </Card>
 
-        <div className="text-center mt-[22px] text-[13px] text-text-faint">
-          Just exploring?{" "}
-          <button className="bg-transparent border-none text-accent font-semibold text-[13px] cursor-pointer p-0 hover:underline" onClick={() => go("home")}>
-            Skip — use sample data
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -10,7 +10,7 @@ function fmtFull(n: number) {
 }
 
 export function TwinProfile() {
-  const { profile } = useAppState();
+  const { user, profile } = useAppState();
   const investmentRate = profile.monthly_income
     ? ((profile.monthly_investment / profile.monthly_income) * 100).toFixed(2)
     : "0";
@@ -34,7 +34,7 @@ export function TwinProfile() {
           <span className="w-1.5 h-1.5 rounded-full bg-accent" /> YOUR DIGITAL TWIN
         </div>
         <h1 className="font-display font-bold text-[clamp(26px,3.6vw,38px)] mb-2.5 tracking-tight">
-          Alex&rsquo;s financial state
+          {user ? `${user.name.split(" ")[0]}’s` : "Your"} financial state
         </h1>
         <p className="text-text-dim text-[15px] mx-auto max-w-[520px]">
           A live structured model of your money — not just numbers, but how they move together.

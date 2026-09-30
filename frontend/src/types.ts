@@ -1,4 +1,5 @@
 export type ViewKey =
+  | "login"
   | "onboarding"
   | "home"
   | "twin"

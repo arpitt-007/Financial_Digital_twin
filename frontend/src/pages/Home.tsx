@@ -4,6 +4,7 @@ import { Gauge } from "@/components/Gauge";
 import { useAppState } from "@/state/AppState";
 import { Search, ArrowRight } from "lucide-react";
 import { parseScenario } from "@/services/api";
+import { computeHealthScore, computeInsight } from "@/lib/insights";
 import type { Scenario } from "@/services/types";
 
 function fmtLakh(n: number) {
@@ -23,7 +24,7 @@ function fmtTime(d: Date) {
 }
 
 export function Home() {
-  const { profile, openScenario, runScenarioSimulation, go } = useAppState();
+  const { user, profile, openScenario, runScenarioSimulation, go } = useAppState();
   const [now, setNow] = React.useState(new Date());
   const [ask, setAsk] = React.useState("");
   const [asking, setAsking] = React.useState(false);
@@ -39,6 +40,8 @@ export function Home() {
 
   const surplus = profile.monthly_income - profile.monthly_expenses;
   const netWorth = profile.investments + profile.cash_savings - profile.existing_debt;
+  const health = React.useMemo(() => computeHealthScore(profile), [profile]);
+  const insight = React.useMemo(() => computeInsight(profile), [profile]);
 
   const send = async () => {
     if (!ask.trim() || asking) return;
@@ -80,7 +83,7 @@ export function Home() {
           SYNAPSE SYNCHRONIZED · <span>{fmtTime(now)}</span>
         </div>
         <h1 className="font-display font-bold text-[clamp(30px,4.2vw,44px)] mb-3 tracking-tight">
-          {greeting}, Alex
+          {greeting}, {user?.name.split(" ")[0] ?? "there"}
         </h1>
         <p className="text-text-dim text-[15.5px] m-0">
           Let's see how your financial world is doing today.
@@ -88,7 +91,7 @@ export function Home() {
       </section>
 
       <Card className="p-[42px_44px] max-[860px]:p-[34px_24px] flex items-center gap-14 flex-wrap max-[860px]:flex-col">
-        <Gauge value={72} />
+        <Gauge value={health.score} label={health.label} />
         <div className="flex-1 flex flex-col w-full">
           <div className="flex items-center justify-between py-4 border-b border-line pt-0.5">
             <div>
@@ -163,14 +166,8 @@ export function Home() {
           <div className="flex items-center gap-1.5 text-[11.5px] text-accent font-semibold mb-2">
             ✨ YOUR TWIN NOTICED
           </div>
-          <p className="text-[14.5px] font-semibold m-0 mb-1">Your monthly surplus is {fmtK(surplus)}.</p>
-          <p className="text-[12.5px] text-text-dim m-0">
-            Emergency buffer covers{" "}
-            <b className="text-text">
-              {profile.monthly_expenses ? (profile.cash_savings / profile.monthly_expenses).toFixed(1) : "0"}
-            </b>{" "}
-            months of expenses.
-          </p>
+          <p className="text-[14.5px] font-semibold m-0 mb-1">{insight.headline}</p>
+          <p className="text-[12.5px] text-text-dim m-0">{insight.detail}</p>
         </div>
         <button
           onClick={() => go("history")}

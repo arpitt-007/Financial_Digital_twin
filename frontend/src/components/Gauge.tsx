@@ -1,6 +1,14 @@
 import * as React from "react";
 
-export function Gauge({ value = 72, max = 100 }: { value?: number; max?: number }) {
+export function Gauge({
+  value = 72,
+  max = 100,
+  label = "Steady & Resilient",
+}: {
+  value?: number;
+  max?: number;
+  label?: string;
+}) {
   const [animate, setAnimate] = React.useState(false);
   const r = 83;
   const circumference = 2 * Math.PI * r;
@@ -40,7 +48,7 @@ export function Gauge({ value = 72, max = 100 }: { value?: number; max?: number 
         </div>
         <div className="mt-2.5 inline-flex items-center gap-1.5 text-[11.5px] text-accent">
           <span className="w-[5px] h-[5px] rounded-full bg-accent shadow-[0_0_8px_1px_rgba(45,212,200,0.35)]" />
-          Steady &amp; Resilient
+          {label}
         </div>
       </div>
     </div>

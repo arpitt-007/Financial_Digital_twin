@@ -12,6 +12,10 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./twin.db"
     frontend_origin: str = "http://localhost:5173"
 
+    # Auth. Set JWT_SECRET in backend/.env; the dev fallback is insecure.
+    jwt_secret: str = "dev-only-insecure-secret-change-me"
+    jwt_expire_minutes: int = Field(default=60 * 24 * 7, gt=0)
+
     # Natural-language scenario parser configuration.
     llm_provider: str = "gemini"
     llm_fallback_provider: str | None = None

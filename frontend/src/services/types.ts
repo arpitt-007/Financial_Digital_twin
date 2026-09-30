@@ -142,3 +142,34 @@ export interface ScenarioParseResult {
   assumptions: string[];
   requires_clarification: boolean;
 }
+
+export interface User {
+  id: number;
+  email: string;
+  name: string;
+  created_at: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: User;
+}
+
+export interface HistoryRecord {
+  id: number;
+  scenario_key: string;
+  title: string;
+  meta: Record<string, unknown>;
+  response: SimulationResponse;
+  net_worth_difference: number;
+  created_at: string;
+}
+
+export interface HistoryCreatePayload {
+  scenario_key: string;
+  title: string;
+  meta: Record<string, unknown>;
+  response: SimulationResponse;
+  net_worth_difference: number;
+}

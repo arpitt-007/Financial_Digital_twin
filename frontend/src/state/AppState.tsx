@@ -1,13 +1,30 @@
 import * as React from "react";
 import type { ViewKey } from "@/types";
 import { scenarios } from "@/data/scenarios";
-import { getProfile, updateProfile, runSimulation } from "@/services/api";
+import {
+  ApiError,
+  deleteHistory,
+  getHistory,
+  getMe,
+  getProfile,
+  getToken,
+  login as apiLogin,
+  runSimulation,
+  saveHistory,
+  setToken,
+  setUnauthorizedHandler,
+  signup as apiSignup,
+  updateProfile,
+} from "@/services/api";
 import type {
+  AuthResponse,
   BackendProfile,
+  HistoryRecord,
   ProfileUpdatePayload,
   Scenario,
   SimulationAssumptions,
   SimulationResponse,
+  User,
 } from "@/services/types";
 
 export interface SimulationMeta {
@@ -21,29 +38,49 @@ export interface SimulationMeta {
 }
 
 export interface SimHistoryEntry {
-  id: string;
+  id: number;
   date: string;
   response: SimulationResponse;
   meta: SimulationMeta;
 }
 
-const defaultProfile: ProfileUpdatePayload = {
-  monthly_income: 80000,
-  monthly_expenses: 42000,
-  cash_savings: 120000,
-  investments: 350000,
-  monthly_investment: 15000,
-  existing_debt: 210000,
+function toEntry(record: HistoryRecord): SimHistoryEntry {
+  return {
+    id: record.id,
+    date: new Date(record.created_at + (record.created_at.endsWith("Z") ? "" : "Z")).toLocaleString(
+      "en-IN",
+      { hour: "numeric", minute: "2-digit", day: "numeric", month: "short" }
+    ),
+    response: record.response,
+    meta: record.meta as unknown as SimulationMeta,
+  };
+}
+
+// Placeholder shown before a profile exists; never sent to the backend.
+const emptyProfile: BackendProfile = {
+  id: 0,
+  monthly_income: 0,
+  monthly_expenses: 0,
+  cash_savings: 0,
+  investments: 0,
+  monthly_investment: 0,
+  existing_debt: 0,
   debt_interest_rate: 0,
   monthly_debt_payment: 0,
-  financial_goal: 1000000,
+  financial_goal: null,
+  created_at: "",
+  updated_at: "",
 };
 
 interface AppStateShape {
   view: ViewKey;
   go: (v: ViewKey) => void;
-  onboarded: boolean;
-  checkingProfile: boolean;
+  user: User | null;
+  authLoading: boolean;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (email: string, name: string, password: string) => Promise<void>;
+  logout: () => void;
+  hasProfile: boolean;
   completeOnboarding: (payload: ProfileUpdatePayload) => Promise<void>;
   onboardingError: string | null;
   profile: BackendProfile;
@@ -59,8 +96,9 @@ interface AppStateShape {
   simulationError: string | null;
   lastSimulation: { response: SimulationResponse; meta: SimulationMeta } | null;
   simHistory: SimHistoryEntry[];
-  saveCurrentToHistory: () => void;
-  openResultsFromHistory: (id: string) => void;
+  saveCurrentToHistory: () => Promise<void>;
+  removeHistoryEntry: (id: number) => Promise<void>;
+  openResultsFromHistory: (id: number) => void;
 }
 
 const AppContext = React.createContext<AppStateShape | null>(null);
@@ -144,50 +182,100 @@ function buildChain(scenario: Scenario, response: SimulationResponse): string[] 
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [view, setView] = React.useState<ViewKey>("onboarding");
-  const [onboarded, setOnboarded] = React.useState(false);
-  const [checkingProfile, setCheckingProfile] = React.useState(true);
+  const [view, setView] = React.useState<ViewKey>("login");
+  const [user, setUser] = React.useState<User | null>(null);
+  const [authLoading, setAuthLoading] = React.useState(() => getToken() !== null);
+  const [hasProfile, setHasProfile] = React.useState(false);
   const [onboardingError, setOnboardingError] = React.useState<string | null>(null);
-  const [profile, setProfile] = React.useState<BackendProfile>({
-    id: 0,
-    ...defaultProfile,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  });
+  const [profile, setProfile] = React.useState<BackendProfile>(emptyProfile);
   const [goalName, setGoalName] = React.useState("Buy a home");
   const [currentScenarioKey, setCurrentScenarioKey] = React.useState<string>("loan");
   const [simulationError, setSimulationError] = React.useState<string | null>(null);
   const [lastSimulation, setLastSimulation] = React.useState<AppStateShape["lastSimulation"]>(null);
   const [simHistory, setSimHistory] = React.useState<SimHistoryEntry[]>([]);
 
-  React.useEffect(() => {
-    let cancelled = false;
-
-    getProfile()
-      .then((loaded) => {
-        if (cancelled) return;
-        if (loaded) {
-          setProfile(loaded);
-          setOnboarded(true);
-          setView("home");
-        }
-      })
-      .catch(() => {
-        // Backend unreachable — fall back to onboarding with sample defaults.
-      })
-      .finally(() => {
-        if (!cancelled) setCheckingProfile(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const go = React.useCallback((v: ViewKey) => {
     setView(v);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
+
+  const logout = React.useCallback(() => {
+    setToken(null);
+    setUser(null);
+    setHasProfile(false);
+    setProfile(emptyProfile);
+    setSimHistory([]);
+    setLastSimulation(null);
+    setOnboardingError(null);
+    setSimulationError(null);
+    setView("login");
+  }, []);
+
+  // Load the signed-in user's profile + saved history and pick the landing view.
+  const hydrate = React.useCallback(async () => {
+    const [loadedProfile, records] = await Promise.all([getProfile(), getHistory()]);
+    setSimHistory(records.map(toEntry));
+    if (loadedProfile) {
+      setProfile(loadedProfile);
+      setHasProfile(true);
+      setView("home");
+    } else {
+      setHasProfile(false);
+      setView("onboarding");
+    }
+  }, []);
+
+  React.useEffect(() => {
+    setUnauthorizedHandler(logout);
+    return () => setUnauthorizedHandler(null);
+  }, [logout]);
+
+  React.useEffect(() => {
+    if (getToken() === null) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const me = await getMe();
+        if (cancelled) return;
+        setUser(me);
+        await hydrate();
+      } catch (error) {
+        // An expired/invalid token is handled by the 401 handler; anything else
+        // (backend down) just returns the user to the login screen.
+        if (!(error instanceof ApiError && error.status === 401)) logout();
+      } finally {
+        if (!cancelled) setAuthLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrate, logout]);
+
+  const startSession = React.useCallback(
+    async (auth: AuthResponse) => {
+      setToken(auth.access_token);
+      setUser(auth.user);
+      await hydrate();
+    },
+    [hydrate]
+  );
+
+  const login = React.useCallback(
+    async (email: string, password: string) => {
+      await startSession(await apiLogin(email, password));
+    },
+    [startSession]
+  );
+
+  const signup = React.useCallback(
+    async (email: string, name: string, password: string) => {
+      await startSession(await apiSignup(email, name, password));
+    },
+    [startSession]
+  );
 
   const completeOnboarding = React.useCallback(
     async (payload: ProfileUpdatePayload) => {
@@ -195,7 +283,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const saved = await updateProfile(payload);
         setProfile(saved);
-        setOnboarded(true);
+        setHasProfile(true);
         go("home");
       } catch (error) {
         setOnboardingError(
@@ -250,24 +338,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [go]
   );
 
-  const saveCurrentToHistory = React.useCallback(() => {
+  const saveCurrentToHistory = React.useCallback(async () => {
     if (!lastSimulation) return;
-    const entry: SimHistoryEntry = {
-      id: `${lastSimulation.meta.scenarioKey}-${Date.now()}`,
-      date: new Date().toLocaleString("en-IN", {
-        hour: "numeric",
-        minute: "2-digit",
-        day: "numeric",
-        month: "short",
-      }),
-      response: lastSimulation.response,
-      meta: lastSimulation.meta,
-    };
-    setSimHistory((prev) => [entry, ...prev]);
+    const { response, meta } = lastSimulation;
+    const record = await saveHistory({
+      scenario_key: meta.scenarioKey,
+      title: meta.title,
+      meta: meta as unknown as Record<string, unknown>,
+      response,
+      net_worth_difference: response.comparison?.net_worth_difference ?? 0,
+    });
+    setSimHistory((prev) => [toEntry(record), ...prev]);
   }, [lastSimulation]);
 
+  const removeHistoryEntry = React.useCallback(async (id: number) => {
+    await deleteHistory(id);
+    setSimHistory((prev) => prev.filter((h) => h.id !== id));
+  }, []);
+
   const openResultsFromHistory = React.useCallback(
-    (id: string) => {
+    (id: number) => {
       const entry = simHistory.find((h) => h.id === id);
       if (!entry) return;
       setLastSimulation({ response: entry.response, meta: entry.meta });
@@ -280,8 +370,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const value: AppStateShape = {
     view,
     go,
-    onboarded,
-    checkingProfile,
+    user,
+    authLoading,
+    login,
+    signup,
+    logout,
+    hasProfile,
     completeOnboarding,
     onboardingError,
     profile,
@@ -294,6 +388,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     lastSimulation,
     simHistory,
     saveCurrentToHistory,
+    removeHistoryEntry,
     openResultsFromHistory,
   };
 

@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from app.config import Settings
+from app.routers.deps import get_current_user
 from app.routers.scenario import router
 from app.schemas.scenario_parse import ScenarioParseRequest
 from app.services.llm_service import (
@@ -293,6 +294,7 @@ def test_parse_endpoint(monkeypatch):
 
     app = FastAPI()
     app.include_router(router)
+    app.dependency_overrides[get_current_user] = lambda: object()
     client = TestClient(app)
 
     response = client.post(

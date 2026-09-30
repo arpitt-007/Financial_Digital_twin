@@ -33,11 +33,13 @@ export function Results() {
   const [whyOpen, setWhyOpen] = React.useState(false);
   const [assumptionsOpen, setAssumptionsOpen] = React.useState(false);
   const [saved, setSaved] = React.useState(false);
+  const [saveError, setSaveError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     setWhyOpen(false);
     setAssumptionsOpen(false);
     setSaved(false);
+    setSaveError(null);
   }, [lastSimulation]);
 
   if (!lastSimulation) {
@@ -188,12 +190,19 @@ export function Results() {
         Estimated scenario based on your inputs and these assumptions — not a prediction.
       </p>
 
+      {saveError && <p className="text-center text-[12.5px] text-neg mt-4">{saveError}</p>}
+
       <div className="flex justify-center gap-3.5 mt-[34px] flex-wrap">
         <Button
           variant="ghost"
-          onClick={() => {
-            saveCurrentToHistory();
-            setSaved(true);
+          onClick={async () => {
+            setSaveError(null);
+            try {
+              await saveCurrentToHistory();
+              setSaved(true);
+            } catch (err) {
+              setSaveError(err instanceof Error ? err.message : "Could not save.");
+            }
           }}
           disabled={saved}
         >
